@@ -56,13 +56,13 @@ pub fn get_drafting_prompt(from: &str, subject: &str, body: &str) -> String {
     format!(
         r#"
     # EXAMPLES
-    ## OUTPUT EMAIL 1 (INTERNAL)
+    ## OUTPUT EMAIL 1 (INTERNAL - SCHEDULING)
 
     ```
     From: Sakamoto <sakamoto@example.com>
     Subject: 明日の予定の件
     Body: Johnさん お疲れ様です。明日の予定を教えていただけないでしょうか。
-    Draft Reply
+    Draft Reply:
     坂本さん
 
     お疲れ様です。
@@ -72,10 +72,32 @@ pub fn get_drafting_prompt(from: &str, subject: &str, body: &str) -> String {
     何卒よろしくお願いいたします。
 
     John
+    ```
 
     ---
 
-    ## OUTPUT EMAIL 2 (EXTERNAL)
+    ## OUTPUT EMAIL 2 (INTERNAL - CONTEXTUAL)
+
+    ```
+    From: Emika <emika@example.com>
+    Subject: A6への周知の件
+    Body: Johnさん お疲れ様です。この件、A6で周知してもらえますか？
+    Draft Reply:
+    Emikaさん
+
+    お疲れ様です。
+
+    承知いたしました。
+    A6チームに周知します。
+
+    何卒よろしくお願いいたします。
+
+    John
+    ```
+
+    ---
+
+    ## OUTPUT EMAIL 3 (EXTERNAL)
 
     ```
     From: 鈴木 <suzuki@example.com>
@@ -96,7 +118,7 @@ pub fn get_drafting_prompt(from: &str, subject: &str, body: &str) -> String {
 
     ---
 
-    ## OUTPUT EMAIL 3 (ENGLISH)
+    ## OUTPUT EMAIL 4 (ENGLISH)
 
     ```
     From: Jane Doe <jane.doe@example.com>
@@ -107,7 +129,7 @@ pub fn get_drafting_prompt(from: &str, subject: &str, body: &str) -> String {
 
     Thanks for reaching out. I'm happy to help. What's your question about the report?
 
-    Best,
+    Best regards,
 
     John
     ```
@@ -127,9 +149,11 @@ pub fn get_drafting_prompt(from: &str, subject: &str, body: &str) -> String {
     ### GENERAL
     - Sign off as 'John'.
     - No need to create a draft for 'test' emails (e.g., containing 'It's a test', 'Test 1', 'Test2', 'テスト', 'テストです！').
+    - **CONTEXT**: "A6" refers to a team. In a Japanese reply, use "A6チーム".
 
     ### ENGLISH EMAILS
     - Use the sender's first name with a friendly opening (e.g., "Hi Jane,").
+    - **BODY**: Do not add extra blank lines between sentences.
     - Use a friendly closing (e.g., "Best,").
 
     ### JAPANESE EMAILS
@@ -142,6 +166,8 @@ pub fn get_drafting_prompt(from: &str, subject: &str, body: &str) -> String {
         - For **external** contacts, use a formal opening like `お世話になっております。`. DO NOT use `お疲れ様です。`.
         - For **internal** colleagues, if they wrote `お疲れ様です`, also use `お疲れ様です。` in the reply. Place it on a **new line** after the salutation, with a blank line in between.
 
+    - **BODY:**
+        - Do not add extra blank lines between sentences in the body. The body should be a single block of text.
     - **CLOSING:**
         - The closing should be `何卒よろしくお願いいたします。` with `John` on a new line after a blank line.
 
