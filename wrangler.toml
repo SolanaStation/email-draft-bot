@@ -1,0 +1,10 @@
+name = "email-draft-bot"
+main = "build/worker/shim.mjs"
+compatibility_date = "2025-07-31"
+
+[build]
+command = "cargo install -q worker-build && worker-build --release"
+
+[[kv_namespaces]]
+binding = "GMAIL_AUTH"
+id = "89bf6323e63341ff83f6f1fabd99598b"
