@@ -5,6 +5,9 @@ use worker::*;
 mod models;
 use models::*;
 
+mod gemini;
+mod gmail;
+
 #[event(fetch)]
 pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
     let mut logs: Vec<String> = Vec::new();
@@ -21,16 +24,17 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
         None => return Response::error("FATAL: Refresh token not found.", 500),
     };
 
-    let access_token = match get_access_token(&client_id, &client_secret, &refresh_token).await {
-        Ok(token_response) => {
-            logs.push("Successfully authenticated with Google.".to_string());
-            token_response.access_token
-        }
-        Err(e) => return Response::error(format!("Failed to get access token: {}", e), 500),
-    };
+    let access_token =
+        match gmail::client::get_access_token(&client_id, &client_secret, &refresh_token).await {
+            Ok(token_response) => {
+                logs.push("Successfully authenticated with Google.".to_string());
+                token_response.access_token
+            }
+            Err(e) => return Response::error(format!("Failed to get access token: {}", e), 500),
+        };
 
     logs.push("Checking for unread emails...".to_string());
-    match find_unread_emails(&access_token, &user_email).await {
+    match gmail::client::find_unread_emails(&access_token, &user_email).await {
         Ok(messages) => {
             if messages.is_empty() {
                 logs.push("No unread emails found.".to_string());
@@ -40,7 +44,13 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
                     messages.len()
                 ));
                 for (i, message_id) in messages.iter().enumerate() {
-                    match get_email_details(&access_token, &user_email, &message_id.id).await {
+                    match gmail::client::get_email_details(
+                        &access_token,
+                        &user_email,
+                        &message_id.id,
+                    )
+                    .await
+                    {
                         Ok(details) => {
                             let from = details
                                 .payload
@@ -107,11 +117,15 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
                                 ",
                                 from, subject, body
                             );
-                            let gemini_decision =
-                                match call_gemini(&gemini_api_key, &classification_prompt).await {
-                                    Ok(text) => text.trim().to_uppercase(),
-                                    Err(e) => format!("Gemini Error: {}", e),
-                                };
+                            let gemini_decision = match gemini::client::call_gemini(
+                                &gemini_api_key,
+                                &classification_prompt,
+                            )
+                            .await
+                            {
+                                Ok(text) => text.trim().to_uppercase(),
+                                Err(e) => format!("Gemini Error: {}", e),
+                            };
 
                             logs.push(format!("\n===== Email #{} =====", i + 1));
                             logs.push(format!("- Subject: {}", subject));
@@ -167,10 +181,12 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
                                     from, subject, body
                                 );
 
-                                match call_gemini(&gemini_api_key, &draft_prompt).await {
+                                match gemini::client::call_gemini(&gemini_api_key, &draft_prompt)
+                                    .await
+                                {
                                     Ok(draft_text) => {
                                         logs.push(format!("- Draft from Gemini: {}", draft_text));
-                                        match create_draft(
+                                        match gmail::client::create_draft(
                                             &access_token,
                                             &user_email,
                                             &message_id.thread_id,
@@ -186,7 +202,7 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
                                                     "- Successfully created draft in Gmail."
                                                         .to_string(),
                                                 );
-                                                match mark_as_read(&access_token, &user_email, &message_id.id).await {
+                                                match gmail::client::mark_as_read(&access_token, &user_email, &message_id.id).await {
                                                     Ok(_) => logs.push("- Successfully marked original email as read.".to_string()),
                                                     Err(e) => logs.push(format!("- Failed to mark email as read: {}", e)),
                                                 }
@@ -218,107 +234,6 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
     Response::ok(logs.join("\n"))
 }
 
-async fn get_access_token(
-    client_id: &str,
-    client_secret: &str,
-    refresh_token: &str,
-) -> Result<GoogleTokenResponse> {
-    let client = reqwest::Client::new();
-    let params = [
-        ("client_id", client_id),
-        ("client_secret", client_secret),
-        ("refresh_token", refresh_token),
-        ("grant_type", "refresh_token"),
-    ];
-
-    let res = client
-        .post("https://oauth2.googleapis.com/token")
-        .form(&params)
-        .send()
-        .await
-        // This is the fix: Manually map the reqwest error to a worker::Error
-        .map_err(|e| Error::from(format!("Reqwest error: {}", e)))?;
-
-    if !res.status().is_success() {
-        let error_text = res
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(Error::from(format!("Google API error: {}", error_text)));
-    }
-
-    // Also apply the fix here for the JSON parsing error
-    res.json::<GoogleTokenResponse>()
-        .await
-        .map_err(|e| Error::from(format!("JSON parsing error: {}", e)))
-}
-
-async fn find_unread_emails(access_token: &str, user_id: &str) -> Result<Vec<MessageId>> {
-    let client = reqwest::Client::new();
-    let url = format!(
-        "https://gmail.googleapis.com/gmail/v1/users/{}/messages",
-        user_id
-    );
-
-    let res = client
-        .get(&url)
-        .bearer_auth(access_token)
-        .query(&[("q", "is:unread")])
-        .send()
-        .await
-        .map_err(|e| Error::from(format!("Reqwest error: {}", e)))?;
-
-    let response_text = res
-        .text()
-        .await
-        .map_err(|e| Error::from(format!("Failed to read response text: {}", e)))?;
-
-    match serde_json::from_str::<MessageListResponse>(&response_text) {
-        Ok(parse_data) => Ok(parse_data.messages.unwrap_or_default()),
-        Err(_) => Err(Error::from(format!(
-            "Gmail API returned non-JSON or error response: {}",
-            response_text
-        ))),
-    }
-}
-
-async fn get_email_details(access_token: &str, user_id: &str, message_id: &str) -> Result<Message> {
-    let client = reqwest::Client::new();
-    let url = format!(
-        "https://gmail.googleapis.com/gmail/v1/users/{}/messages/{}",
-        user_id, message_id
-    );
-
-    let res = client
-        .get(&url)
-        .bearer_auth(access_token)
-        .query(&[
-            ("format", "full"),
-            ("metadataHeaders", "Date"),
-            ("metadataHeaders", "From"),
-            ("metadataHeaders", "To"),
-            ("metadataHeaders", "Cc"),
-            ("metadataHeaders", "Bcc"),
-            ("metadataHeaders", "Subject"),
-        ])
-        .send()
-        .await
-        .map_err(|e| Error::from(format!("Reqwest error: {}", e)))?;
-
-    let response_text = res
-        .text()
-        .await
-        .map_err(|e| Error::from(format!("Failed to read response text: {}", e)))?;
-
-    match serde_json::from_str::<Message>(&response_text) {
-        Ok(parsed_text) => Ok(parsed_text),
-        Err(_) => Err(Error::from(format!(
-            "Gmail API returned non-JSON or error response: {}",
-            response_text
-        ))),
-    }
-}
-
 fn find_plain_text_body(part: &MessagePart) -> Option<&str> {
     if part.mime_type == "text/plain" {
         if let Some(data) = &part.body.data {
@@ -335,132 +250,4 @@ fn find_plain_text_body(part: &MessagePart) -> Option<&str> {
     }
 
     None
-}
-
-async fn call_gemini(api_key: &str, prompt: &str) -> Result<String> {
-    let client = reqwest::Client::new();
-    let url = format!("
-        https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={}", api_key);
-
-    let body = GeminiRequest {
-        contents: vec![Content {
-            parts: vec![Part {
-                text: prompt.to_string(),
-            }],
-        }],
-    };
-
-    let res = client
-        .post(&url)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| Error::from(format!("Reqwest error: {}", e)))?;
-
-    if !res.status().is_success() {
-        let error_text = res
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(Error::from(format!("Gemini API error: {}", error_text)));
-    }
-
-    let response_data = res
-        .json::<GeminiResponse>()
-        .await
-        .map_err(|e| Error::from(format!("JSON parsing error: {}", e)))?;
-
-    // Extract the text from the complex response structure
-    if let Some(candidate) = response_data.candidates.get(0) {
-        if let Some(part) = candidate.content.parts.get(0) {
-            return Ok(part.text.clone());
-        }
-    }
-
-    Err(Error::from("Could not extract text from Gemini response"))
-}
-
-async fn create_draft(
-    access_token: &str,
-    user_id: &str,
-    thread_id: &str,
-    to_all: &str,
-    cc_all: &str,
-    subject: &str,
-    body: &str,
-) -> Result<()> {
-    let mut headers = format!("To: {}\r\nSubject: Re: {}\r\n", to_all, subject);
-    if !cc_all.is_empty() {
-        headers.push_str(&format!("Cc: {}\r\n", cc_all));
-    }
-
-    let raw_email = format!("{}\r\n{}", headers, body);
-    let encoded_email = URL_SAFE.encode(raw_email);
-
-    let draft_request = CreateDraftRequest {
-        message: DraftMessage {
-            thread_id: thread_id.to_string(),
-            raw: encoded_email,
-        },
-    };
-
-    let client = reqwest::Client::new();
-    let url = format!(
-        "https://gmail.googleapis.com/gmail/v1/users/{}/drafts",
-        user_id
-    );
-
-    let res = client
-        .post(&url)
-        .bearer_auth(access_token)
-        .json(&draft_request)
-        .send()
-        .await
-        .map_err(|e| Error::from(format!("Reqwest error: {}", e)))?;
-
-    if res.status().is_success() {
-        Ok(())
-    } else {
-        let error_text = res
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        Err(Error::from(format!(
-            "Failed to create draft: {}",
-            error_text
-        )))
-    }
-}
-
-async fn mark_as_read(access_token: &str, user_id: &str, message_id: &str) -> Result<()> {
-    let client = reqwest::Client::new();
-    let url = format!(
-        "https://gmail.googleapis.com/gmail/v1/users/{}/messages/{}/modify",
-        user_id, message_id
-    );
-
-    let modify_request = ModifyMessageRequest {
-        remove_label_ids: vec!["UNREAD".to_string()],
-    };
-
-    let res = client
-        .post(&url)
-        .bearer_auth(access_token)
-        .json(&modify_request)
-        .send()
-        .await
-        .map_err(|e| Error::from(format!("Reqwest error: {}", e)))?;
-
-    if res.status().is_success() {
-        Ok(())
-    } else {
-        let error_text = res
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        Err(Error::from(format!(
-            "Failed to modify message: {}",
-            error_text
-        )))
-    }
 }
