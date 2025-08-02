@@ -88,35 +88,9 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
                                 })
                                 .unwrap_or_else(|| "No plain text body found".to_string());
 
-                            let classification_prompt = format!("
-                                # WHO YOU ARE: You are an AI assistant for John Tashiro. Your task is to analyze an email and determine if it requires a personal reply from John. Respond with only a single word: YES or NO
+                            let classification_prompt =
+                                gemini::prompts::get_classification_prompt(from, subject, &body);
 
-                                ---EXAMPLE
-                                [EMAIL]
-                                From: Emika <emika@example.com>
-                                Subject: Attendance Report
-                                Body: Hi John, Can you provide the Attendance Report for last week? Best regards, Emika
-                                [DECISION]
-                                YES
-
-                                ---EXAMPLE
-                                [EMAIL]
-                                From: Sakamoto <sakamoto@example.com>
-                                Subject: 明日の予定の件
-                                Body: Johnさん お疲れ様です。明日の予定を教えていただけないでしょうか。何卒よろしくお願いいたします。坂本
-                                [DECISION]
-                                YES
-
-                                ---
-                                [EMAIL]
-                                From: {}
-                                Subject: {}
-                                Body: {}
-                                [DECISION]
-                                YES or NO?
-                                ",
-                                from, subject, body
-                            );
                             let gemini_decision = match gemini::client::call_gemini(
                                 &gemini_api_key,
                                 &classification_prompt,
@@ -153,33 +127,8 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
                                 cc_recipients.dedup();
                                 let cc_all = cc_recipients.join(", ");
 
-                                let draft_prompt = format!("
-                                    # WHO YOU ARE: You are an AI assistant for John Tashiro. Your task is to draft a polite and professional reply to the following email. Keep the reply concise and helpful.
-
-                                    # SPECIFICS:
-                                    - Sign off as 'John'
-                                    - Include the sender's first name if it's in English. If it's in Japanese, use their Japanese last name in Kanji. But if there's no kanji, use their last name in English while adding a '-san.' For example, 'Hello Yamashita-san,'...
-                                    - If the conversation is in English have a nice friendly opening, but if it's Japanese, you don't need that.
-                                    - If it's a Japanese conversation and the sender had 'お疲れ様です' in their opening, use the same in your reply draft, 'お疲れ様です。'
-                                    - If it's a Japanese conversation and the sender said 'お疲れ様です' or 'お疲れ様でございます,' use 'さん' instead of '様' because we're the same company member.
-                                    - If it's a Japanese conversation, have the closure as '何卒よろしくお願いいたします。 John'
-                                    - No need to create a draft if someone sends a 'test' email. They'll say like 'It's a test.' or 'Test 1' or 'Test2' or 'テスト' or 'テストです！' etc.
-
-                                    ---EXAMPLE
-                                    [EMAIL]
-                                    From: Sakamoto <sakamoto@example.com>
-                                    Subject: 明日の予定の件
-                                    [DRAFT REPLY]
-                                    坂本さん お疲れ様です。明日の午前はクライアントMTGがありますので、午後でしたら空いております。13時からの30分はいかがでしょうか。何卒よろしくお願いいたします。John
-
-                                    ---
-                                    [ORIGINAL EMAIL]
-                                    - From: {}
-                                    - Subject: {}
-                                    - Body: {}\
-                                    [DRAFT REPLY]",
-                                    from, subject, body
-                                );
+                                let draft_prompt =
+                                    gemini::prompts::get_drafting_prompt(from, subject, &body);
 
                                 match gemini::client::call_gemini(&gemini_api_key, &draft_prompt)
                                     .await
