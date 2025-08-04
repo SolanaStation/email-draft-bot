@@ -8,3 +8,7 @@ command = "cargo install -q worker-build && worker-build --release"
 [[kv_namespaces]]
 binding = "GMAIL_AUTH"
 id = "89bf6323e63341ff83f6f1fabd99598b"
+
+[[vectorize]]
+binding = "EMAIL_CONTEXT"
+index_name = "email-draft-bot-context"

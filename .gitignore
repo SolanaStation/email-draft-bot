@@ -2,3 +2,5 @@ target
 node_modules
 .wrangler
 client_secret_726062459704-reft3fh75f5t094u16vuhu7hb2jupief.apps.googleusercontent.com.json
+Authorization URL: https://accounts.google.com/o/oauth2/v2/auth?client_id=726062459704-reft3fh75f5t094u16vuhu7hb2jupief.apps.googleusercontent.com&redirect_uri=https://developers.google.com/oauthplayground&response_type=code&scope=https://www.googleapis.com/auth/gmail.modify%20https://www.googleapis.com/auth/cloud-platform&access_type=offline&prompt=consent
+Client ID: 726062459704-reft3fh75f5t094u16vuhu7hb2jupief.apps.googleusercontent.com
