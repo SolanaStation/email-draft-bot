@@ -1,4 +1,5 @@
 use crate::models::*;
+use reqwest::StatusCode;
 use worker::*;
 
 pub async fn call_gemini(api_key: &str, prompt: &str) -> Result<String> {
@@ -24,11 +25,22 @@ pub async fn call_gemini(api_key: &str, prompt: &str) -> Result<String> {
         .map_err(|e| Error::from(format!("Reqwest error: {}", e)))?;
 
     if !res.status().is_success() {
+        let status = res.status();
+
         let error_text = res
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(Error::from(format!("Gemini API error: {}", error_text)));
+
+        let error_messages = match status {
+            StatusCode::UNAUTHORIZED => "Invalid API Key".to_string(),
+            StatusCode::FORBIDDEN => {
+                "Refresh token is no longer valid or has been revoked".to_string()
+            }
+            StatusCode::TOO_MANY_REQUESTS => "Rate limit exceeded".to_string(),
+            _ => format!("Gemini API Error: {}/Status: {}", error_text, status),
+        };
+        return Err(Error::from(error_messages));
     }
 
     let response_data = res
