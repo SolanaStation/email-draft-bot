@@ -262,7 +262,29 @@ pub fn get_search_keywords_prompt(body: &str) -> String {
         ```
 
         ## OUTPUT 2
-        Attendance,Attendance Report,Appearance,出勤,出社,勤怠
+        Attendance,Attendance Report,Coverage,Coverage Report,Coverage,Coverage Plan,Appearance,出勤,出社,勤怠
+
+        ---
+
+        ## INPUT EMAIL 2
+
+        ```
+        From: Minzi <minzi@example.com>
+        Subject: 【TPJP/DAWN】先週分の出勤表の共有について
+        Body:
+        Johnさん
+
+        お疲れ様です、
+
+        先週分のAttendance/Coverage Planのシートをご送付いただけませんでしょうか。
+
+        お手数をおかけまして申し訳ございません
+
+        Best Regards！
+        Minzi Shan
+        ```
+        ## OUTPUT 3
+        Attendance,Attendance Report,Coverage,Coverage Report,Coverage,Coverage Plan,Appearance,出勤,出社,勤怠
 
         ---
 
