@@ -183,18 +183,16 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
                                             search_keywords
                                         ));
 
-                                        // 2. Build a robust search query for the Drive API
-                                        // This splits keywords and requires all of them to be in the file name.
+                                        // 2. Build a robust search query for the Drive API.
+                                        // This splits keywords by comma and uses 'or' to find any match.
                                         let query = search_keywords
-                                            .split_whitespace()
-                                            .map(|word| {
-                                                format!(
-                                                    "name contains '{}'",
-                                                    word.trim_matches('\'')
-                                                )
-                                            })
+                                            .trim_matches('\'')
+                                            .split(',')
+                                            .map(|s| s.trim())
+                                            .filter(|s| !s.is_empty())
+                                            .map(|word| format!("name contains '{}'", word))
                                             .collect::<Vec<_>>()
-                                            .join(" and ");
+                                            .join(" or ");
 
                                         let final_query = format!("{} and mimeType != 'application/vnd.google-apps.folder'", query);
                                         logs.push(format!(
