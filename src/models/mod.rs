@@ -101,3 +101,18 @@ pub struct DraftMessage {
 pub struct ModifyMessageRequest {
     pub remove_label_ids: Vec<String>,
 }
+
+// Google Drive Structs
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct FileListResponse {
+    pub files: Vec<DriveFile>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct DriveFile {
+    pub id: String,
+    pub name: String,
+    pub web_view_link: String,
+}

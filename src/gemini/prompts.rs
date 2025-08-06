@@ -7,20 +7,55 @@ pub fn get_classification_prompt(from: &str, subject: &str, body: &str) -> Strin
     ```
     From: Emika <emika@example.com>
     Subject: Attendance Report
-    Body: Hi John, Can you provide the Attendance Report for last week? Best regards, Emika
+    Body:
+    Hi John,
+
+    Can you provide the Attendance Report for last week?
+
+    Best regards,
+    Emika
     ```
 
     ## OUTPUT 1
-    YES
+    IS_FILE_REQUEST
 
     ## INPUT EMAIL 2
+
     ```
-    From: Sakamoto <sakamoto@example.com>
-    Subject: 明日の予定の件
-    Body: Johnさん お疲れ様です。明日の予定を教えていただけないでしょうか。何卒よろしくお願いいたします。坂本
+    From: Minzi <minzi@example.com>
+    Subject: Attendance Report
+    Body:
+    Tashiro さん
+
+    お疲れ様です。WFMの単です。
+
+    大変恐れ入りますが、今週分の出勤リストをご発送お願いできませんでしょうか。
+
+    以上、どうぞよろしくお願いいたします
+
+    単
     ```
 
     ## OUTPUT 2
+    IS_FILE_REQUEST
+
+    ## INPUT EMAIL 3
+    ```
+    From: Sakamoto <sakamoto@example.com>
+    Subject: 明日の予定の件
+    Body:
+    Johnさん
+
+    お疲れ様です。
+
+    明日の予定を教えていただけないでしょうか。
+
+    何卒よろしくお願いいたします。
+
+    坂本
+    ```
+
+    ## OUTPUT 3
     YES
 
     ---
@@ -33,9 +68,10 @@ pub fn get_classification_prompt(from: &str, subject: &str, body: &str) -> Strin
     # INSTRUCTIONS
     The input email will come in email format.
 
-    The expected output is: YES or NO
+    Expected output: YES, NO, or IS_FILE_REQUEST
     - YES // When the analyzed email requires a personal reply from John.
     - NO // When the analyzed email doesn't require a personal reply from John. When it's a test email. When the email is just thanking John. When the email.
+    - IS_FILE_REQUEST // When the analyzed email requires a personal reply from John and requires a file attachment.
 
     ---
 
@@ -182,5 +218,66 @@ pub fn get_drafting_prompt(from: &str, subject: &str, body: &str) -> String {
 
     "#,
         from, subject, body
+    )
+}
+
+pub fn get_search_keywords_prompt(body: &str) -> String {
+    format!(
+        r#"
+        # EXAMPLES
+        ## INPUT EMAIL 1
+
+        ```
+        From: Emika <emika@example.com>
+        Subject: Attendance Report
+        Body:
+        Hi John,
+
+        Can you provide the Attendance Report for last week?
+
+        Best regards,
+        Emika
+        ```
+
+        ## OUTPUT 1
+        Attendance,Attendance Report,Appearance,出勤,出社,勤怠
+
+        ---
+
+        ## INPUT EMAIL 2
+
+        ```
+        From: Minzi <minzi@example.com>
+        Subject: 【TPJP/DAWN】先週分の出勤表の共有について
+        Body:
+        Tashiro さん
+
+        お疲れ様です。WFMの単です。
+
+        大変恐れ入りますが、今週分の出勤リストをご発送お願いできませんでしょうか。
+
+        以上、どうぞよろしくお願いいたします
+
+        単
+        ```
+
+        ## OUTPUT 2
+        Attendance,Attendance Report,Appearance,出勤,出社,勤怠
+
+        ---
+
+        # INSTRUCTIONS
+        Analyze the INPUT EMAIL BODY and generate a comma-separated list of keywords based on the following rules:
+        1. **Identify the core request**: Extract the essential file name or topic (e.g., "Attendance Report").
+        2. **Generate Semantic Keywords**: Include conceptually related English words and synonyms (e.g., "Appearance").
+        3. **Generate Multilingual Keywords**: Include relevant Japanese translations and synonyms, as shown in the example (e.g., "出勤", "勤怠").
+        4. **Format the Output**: Combine all keywords into a single line, separated only by commas. Do not include labels, explanations, or any text other than the keywords themselves.
+
+        ---
+
+        # INPUT EMAIL BODY
+        Body: {}
+        "#,
+        body
     )
 }

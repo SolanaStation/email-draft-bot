@@ -1,10 +1,10 @@
 use base64::{engine::general_purpose::URL_SAFE, Engine as _};
-use serde::{Deserialize, Serialize};
 use worker::*;
 
 mod models;
 use models::*;
 
+mod drive;
 mod gemini;
 mod gmail;
 
@@ -164,6 +164,84 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
                                         "- Failed to generate draft from Gemini: {}",
                                         e
                                     )),
+                                }
+                            } else if gemini_decision == "IS_FILE_REQUEST" {
+                                logs.push(
+                                    "- ✅ INTENT: File Request Detected. Proceeding to file research..."
+                                        .to_string(),
+                                );
+
+                                let keywords_prompt =
+                                    gemini::prompts::get_search_keywords_prompt(&body);
+
+                                match gemini::client::call_gemini(&gemini_api_key, &keywords_prompt)
+                                    .await
+                                {
+                                    Ok(search_keywords) => {
+                                        logs.push(format!(
+                                            "- Keywords for search: '{}'",
+                                            search_keywords
+                                        ));
+
+                                        // 2. Build a robust search query for the Drive API
+                                        // This splits keywords and requires all of them to be in the file name.
+                                        let query = search_keywords
+                                            .split_whitespace()
+                                            .map(|word| {
+                                                format!(
+                                                    "name contains '{}'",
+                                                    word.trim_matches('\'')
+                                                )
+                                            })
+                                            .collect::<Vec<_>>()
+                                            .join(" and ");
+
+                                        let final_query = format!("{} and mimeType != 'application/vnd.google-apps.folder'", query);
+                                        logs.push(format!(
+                                            "- Executing Drive search with query: {}",
+                                            final_query
+                                        ));
+
+                                        // 3. Call our new drive client to search for files
+                                        match drive::client::search_files(
+                                            &access_token,
+                                            &final_query,
+                                        )
+                                        .await
+                                        {
+                                            Ok(files) => {
+                                                if files.is_empty() {
+                                                    logs.push("- ⚠️ No files found matching the search query.".to_string());
+                                                    // FUTURE: Phase 4 (Human-in-the-loop) logic will go here.
+                                                } else {
+                                                    logs.push(format!(
+                                                        "- ✅ Found {} matching file(s):",
+                                                        files.len()
+                                                    ));
+                                                    for file in files {
+                                                        // 4. For now, just log the name and URL of each found file
+                                                        logs.push(format!(
+                                                            "  - Name: {}, URL: {}",
+                                                            file.name, file.web_view_link
+                                                        ));
+                                                    }
+                                                    // FUTURE: Logic to select a file and attach it will go here.
+                                                }
+                                            }
+                                            Err(e) => {
+                                                logs.push(format!(
+                                                    "- ❌ Error during Google Drive search: {}",
+                                                    e
+                                                ));
+                                            }
+                                        }
+                                    }
+                                    Err(e) => {
+                                        logs.push(format!(
+                                            "- ❌ Error getting search keywords from Gemini: {}",
+                                            e
+                                        ));
+                                    }
                                 }
                             }
                         }
