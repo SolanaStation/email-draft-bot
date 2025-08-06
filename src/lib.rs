@@ -178,11 +178,6 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
                                     .await
                                 {
                                     Ok(search_keywords) => {
-                                        logs.push(format!(
-                                            "- Keywords for search: '{}'",
-                                            search_keywords
-                                        ));
-
                                         // 2. Build a robust search query for the Drive API.
                                         // This splits keywords by comma and uses 'or' to find any match.
                                         let query = search_keywords
@@ -194,18 +189,14 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
                                             .collect::<Vec<_>>()
                                             .join(" or ");
 
-                                        let final_query = format!("{} and mimeType != 'application/vnd.google-apps.folder'", query);
                                         logs.push(format!(
                                             "- Executing Drive search with query: {}",
-                                            final_query
+                                            &query
                                         ));
 
                                         // 3. Call our new drive client to search for files
-                                        match drive::client::search_files(
-                                            &access_token,
-                                            &final_query,
-                                        )
-                                        .await
+                                        match drive::client::search_files(&access_token, &query)
+                                            .await
                                         {
                                             Ok(files) => {
                                                 if files.is_empty() {
@@ -216,12 +207,20 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
                                                         "- ✅ Found {} matching file(s):",
                                                         files.len()
                                                     ));
-                                                    for file in files {
-                                                        // 4. For now, just log the name and URL of each found file
+
+                                                    if files.len() == 1 {
                                                         logs.push(format!(
-                                                            "  - Name: {}, URL: {}",
-                                                            file.name, file.web_view_link
+                                                            "- ✅ Selected file: {}",
+                                                            files[0].name
                                                         ));
+                                                    } else {
+                                                        logs.push("- ⚠️ Multiple files found, please select one:".to_string());
+                                                        for file in files {
+                                                            logs.push(format!(
+                                                                "- URL: {}",
+                                                                file.web_view_link
+                                                            ));
+                                                        }
                                                     }
                                                     // FUTURE: Logic to select a file and attach it will go here.
                                                 }
