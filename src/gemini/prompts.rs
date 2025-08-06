@@ -82,7 +82,41 @@ pub fn get_classification_prompt(from: &str, subject: &str, body: &str) -> Strin
     )
 }
 
-pub fn get_drafting_prompt(from: &str, subject: &str, body: &str) -> String {
+pub fn get_drafting_prompt(
+    from: &str,
+    subject: &str,
+    body: &str,
+    file_path: Option<String>,
+) -> String {
+    let (file_attachment_example, file_attachment_instruction, file_info) = if let Some(path) =
+        file_path
+    {
+        let example = r#"
+            ---
+
+            ## OUTPUT EMAIL 5 (WITH ATTACHMENT)
+
+            From: Emika <emika@example.com>
+            Subject: Attendance Report
+            Body: Hi John, Can you provide the Attendance Report for last week?
+            Attached File: /path/to/Attendance-Report.pdf
+            Draft Reply:
+            Hi Emika,
+
+            Thanks for reaching out.
+
+            Please find the attendance report for last week attached.
+
+            Best regards,
+            John
+            "#;
+        let instruction = r#"- If a file is attached, state in the email body that the file is attached (e.g., "Please find the file attached."). Do not say you will send it later."#;
+        let info = format!("- Attached File: {}\n", path);
+        (example, instruction, info)
+    } else {
+        ("", "", String::new())
+    };
+
     format!(
         r#"
     # EXAMPLES
@@ -154,7 +188,7 @@ pub fn get_drafting_prompt(from: &str, subject: &str, body: &str) -> String {
 
     Best regards,
     John
-
+    {file_attachment_example}
 
     ---
 
@@ -172,6 +206,7 @@ pub fn get_drafting_prompt(from: &str, subject: &str, body: &str) -> String {
     - Sign off as 'John'.
     - No need to create a draft for 'test' emails (e.g., containing 'It's a test', 'Test 1', 'Test2', 'テスト', 'テストです！').
     - **CONTEXT**: "A6" refers to a team. In a Japanese reply, use "A6チーム".
+    {file_attachment_instruction}
 
     ### ENGLISH EMAILS
     - Use the sender's first name with a friendly opening (e.g., "Hi Jane,").
@@ -196,14 +231,19 @@ pub fn get_drafting_prompt(from: &str, subject: &str, body: &str) -> String {
     ---
 
     # INPUT EMAIL
-    - From: {}
-    - Subject: {}
-    - Body: {}
-    - Draft Reply:
-    THE EMAIL DRAFT
+    - From: {from}
+    - Subject: {subject}
+    - Body: {body}
+    - Draft Reply: THE EMAIL DRAFT
+    - {file_info}
 
     "#,
-        from, subject, body
+        from = from,
+        subject = subject,
+        body = body,
+        file_attachment_example = file_attachment_example,
+        file_attachment_instruction = file_attachment_instruction,
+        file_info = file_info
     )
 }
 
@@ -278,8 +318,7 @@ pub fn get_search_keywords_prompt(body: &str) -> String {
 
         ---
 
-        # INPUT EMAIL BODY
-        Body: {}
+        # INPUT EMAIL BODY        Body: {}
         "#,
         body
     )

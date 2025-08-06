@@ -2,7 +2,6 @@ use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 use worker::*;
 
 mod models;
-use models::*;
 
 mod drive;
 mod gemini;
@@ -127,8 +126,9 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
                                 cc_recipients.dedup();
                                 let cc_all = cc_recipients.join(", ");
 
-                                let draft_prompt =
-                                    gemini::prompts::get_drafting_prompt(from, subject, &body);
+                                let draft_prompt = gemini::prompts::get_drafting_prompt(
+                                    from, subject, &body, None,
+                                );
 
                                 match gemini::client::call_gemini(&gemini_api_key, &draft_prompt)
                                     .await
@@ -270,7 +270,7 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
                                                                 let cc_all = cc_recipients.join(", ");
 
                                                                 let draft_prompt =
-                                                                    gemini::prompts::get_drafting_prompt(from, subject, &body);
+                                                                    gemini::prompts::get_drafting_prompt(from, subject, &body, Some(attachment_filename.clone()));
 
                                                                 match gemini::client::call_gemini(&gemini_api_key, &draft_prompt)
                                                                     .await
@@ -355,16 +355,16 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
     Response::ok(logs.join("\n"))
 }
 
-fn find_plain_text_body(part: &MessagePart) -> Option<&str> {
-    if part.mime_type == "text/plain" {
-        if let Some(data) = &part.body.data {
-            return Some(data);
+fn find_plain_text_body(payload: &models::MessagePart) -> Option<String> {
+    if payload.mime_type == "text/plain" {
+        if let Some(data) = &payload.body.data {
+            return Some(data.clone());
         }
     }
 
-    if let Some(parts) = &part.parts {
-        for sub_part in parts {
-            if let Some(body) = find_plain_text_body(sub_part) {
+    if let Some(parts) = &payload.parts {
+        for part in parts {
+            if let Some(body) = find_plain_text_body(part) {
                 return Some(body);
             }
         }
