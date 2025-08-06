@@ -153,7 +153,6 @@ pub fn get_drafting_prompt(from: &str, subject: &str, body: &str) -> String {
     Thanks for reaching out. I'm happy to help. What's your question about the report?
 
     Best regards,
-
     John
 
 
