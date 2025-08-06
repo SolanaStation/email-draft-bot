@@ -4,7 +4,6 @@ pub fn get_classification_prompt(from: &str, subject: &str, body: &str) -> Strin
     # EXAMPLES
     ## INPUT EMAIL 1
 
-    ```
     From: Emika <emika@example.com>
     Subject: Attendance Report
     Body:
@@ -14,14 +13,12 @@ pub fn get_classification_prompt(from: &str, subject: &str, body: &str) -> Strin
 
     Best regards,
     Emika
-    ```
 
     ## OUTPUT 1
     IS_FILE_REQUEST
 
     ## INPUT EMAIL 2
 
-    ```
     From: Minzi <minzi@example.com>
     Subject: Attendance Report
     Body:
@@ -34,13 +31,12 @@ pub fn get_classification_prompt(from: &str, subject: &str, body: &str) -> Strin
     以上、どうぞよろしくお願いいたします
 
     単
-    ```
 
     ## OUTPUT 2
     IS_FILE_REQUEST
 
     ## INPUT EMAIL 3
-    ```
+
     From: Sakamoto <sakamoto@example.com>
     Subject: 明日の予定の件
     Body:
@@ -53,7 +49,7 @@ pub fn get_classification_prompt(from: &str, subject: &str, body: &str) -> Strin
     何卒よろしくお願いいたします。
 
     坂本
-    ```
+
 
     ## OUTPUT 3
     YES
@@ -77,11 +73,9 @@ pub fn get_classification_prompt(from: &str, subject: &str, body: &str) -> Strin
 
     # INPUT EMAIL
 
-    ```
     From: {}
     Subject: {}
     Body: {}
-    ```
 
     "#,
         from, subject, body
@@ -94,7 +88,6 @@ pub fn get_drafting_prompt(from: &str, subject: &str, body: &str) -> String {
     # EXAMPLES
     ## OUTPUT EMAIL 1 (INTERNAL - SCHEDULING)
 
-    ```
     From: Sakamoto <sakamoto@example.com>
     Subject: 明日の予定の件
     Body: Johnさん お疲れ様です。明日の予定を教えていただけないでしょうか。
@@ -108,13 +101,11 @@ pub fn get_drafting_prompt(from: &str, subject: &str, body: &str) -> String {
     何卒よろしくお願いいたします。
 
     John
-    ```
 
     ---
 
     ## OUTPUT EMAIL 2 (INTERNAL - CONTEXTUAL)
 
-    ```
     From: Emika <emika@example.com>
     Subject: A6への周知の件
     Body: Johnさん お疲れ様です。この件、A6で周知してもらえますか？
@@ -129,13 +120,11 @@ pub fn get_drafting_prompt(from: &str, subject: &str, body: &str) -> String {
     何卒よろしくお願いいたします。
 
     John
-    ```
 
     ---
 
     ## OUTPUT EMAIL 3 (EXTERNAL)
 
-    ```
     From: 鈴木 <suzuki@example.com>
     Subject: ご提案の件
     Body: John Tashiro様 お世話になっております。株式会社鈴木の鈴木です。先日のご提案についてですが...
@@ -150,13 +139,11 @@ pub fn get_drafting_prompt(from: &str, subject: &str, body: &str) -> String {
     何卒よろしくお願いいたします。
 
     John
-    ```
 
     ---
 
     ## OUTPUT EMAIL 4 (ENGLISH)
 
-    ```
     From: Jane Doe <jane.doe@example.com>
     Subject: Quick question
     Body: Hi John, Hope you are well. Just had a quick question about the report.
@@ -168,7 +155,7 @@ pub fn get_drafting_prompt(from: &str, subject: &str, body: &str) -> String {
     Best regards,
 
     John
-    ```
+
 
     ---
 
@@ -227,7 +214,6 @@ pub fn get_search_keywords_prompt(body: &str) -> String {
         # EXAMPLES
         ## INPUT EMAIL 1
 
-        ```
         From: Emika <emika@example.com>
         Subject: Attendance Report
         Body:
@@ -237,7 +223,6 @@ pub fn get_search_keywords_prompt(body: &str) -> String {
 
         Best regards,
         Emika
-        ```
 
         ## OUTPUT 1
         Attendance,Attendance Report,Appearance,出勤,出社,勤怠
@@ -246,7 +231,6 @@ pub fn get_search_keywords_prompt(body: &str) -> String {
 
         ## INPUT EMAIL 2
 
-        ```
         From: Minzi <minzi@example.com>
         Subject: 【TPJP/DAWN】先週分の出勤表の共有について
         Body:
@@ -259,7 +243,6 @@ pub fn get_search_keywords_prompt(body: &str) -> String {
         以上、どうぞよろしくお願いいたします
 
         単
-        ```
 
         ## OUTPUT 2
         Attendance,Attendance Report,Coverage,Coverage Report,Coverage,Coverage Plan,Appearance,出勤,出社,勤怠
@@ -268,7 +251,6 @@ pub fn get_search_keywords_prompt(body: &str) -> String {
 
         ## INPUT EMAIL 2
 
-        ```
         From: Minzi <minzi@example.com>
         Subject: 【TPJP/DAWN】先週分の出勤表の共有について
         Body:
@@ -282,7 +264,7 @@ pub fn get_search_keywords_prompt(body: &str) -> String {
 
         Best Regards！
         Minzi Shan
-        ```
+
         ## OUTPUT 3
         Attendance,Attendance Report,Coverage,Coverage Report,Coverage,Coverage Plan,Appearance,出勤,出社,勤怠
 
