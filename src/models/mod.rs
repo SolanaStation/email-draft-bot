@@ -115,4 +115,14 @@ pub struct DriveFile {
     pub id: String,
     pub name: String,
     pub web_view_link: String,
+    pub mime_type: String,
+}
+
+pub type AttachmentData = Vec<u8>;
+
+#[derive(Debug, Clone)]
+pub struct Attachment {
+    pub filename: String,
+    pub mime_type: String,
+    pub data: AttachmentData,
 }

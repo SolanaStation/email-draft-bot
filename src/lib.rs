@@ -135,7 +135,7 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
                                 {
                                     Ok(draft_text) => {
                                         logs.push(format!("- Draft from Gemini: {}", draft_text));
-                                        match gmail::client::create_draft(
+                                        match gmail::client::create_draft_with_attachment(
                                             &access_token,
                                             &user_email,
                                             &message_id.thread_id,
@@ -143,6 +143,7 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
                                             &cc_all,
                                             subject,
                                             &draft_text,
+                                            None,
                                         )
                                         .await
                                         {
@@ -209,20 +210,116 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
                                                     ));
 
                                                     if files.len() == 1 {
+                                                        let file_to_attach = &files[0];
                                                         logs.push(format!(
-                                                            "- ✅ Selected file: {}",
-                                                            files[0].name
+                                                            "- ✅ Found one clear match: '{}'. Proceeding to draft email with attachment.",
+                                                            file_to_attach.name
                                                         ));
+
+                                                        let is_google_doc =
+                                                            file_to_attach.mime_type.starts_with(
+                                                                "application/vnd.google-apps",
+                                                            );
+                                                        let (
+                                                            file_data_result,
+                                                            attachment_filename,
+                                                            attachment_mime_type,
+                                                        ) = if is_google_doc {
+                                                            let export_mime_type =
+                                                                "application/pdf";
+                                                            let filename = format!(
+                                                                "{}.pdf",
+                                                                file_to_attach.name
+                                                            );
+                                                            logs.push(format!("- File is a Google Doc, exporting as PDF."));
+                                                            (
+                                                                drive::client::export_file(
+                                                                    &access_token,
+                                                                    &file_to_attach.id,
+                                                                    export_mime_type,
+                                                                )
+                                                                .await,
+                                                                filename,
+                                                                export_mime_type.to_string(),
+                                                            )
+                                                        } else {
+                                                            (
+                                                                drive::client::download_file(
+                                                                    &access_token,
+                                                                    &file_to_attach.id,
+                                                                )
+                                                                .await,
+                                                                file_to_attach.name.clone(),
+                                                                file_to_attach.mime_type.clone(),
+                                                            )
+                                                        };
+
+                                                        match file_data_result {
+                                                            Ok(file_data) => {
+                                                                let mut to_recipients: Vec<&str> = from.split(',').chain(to.split(',')).collect();
+                                                                let mut cc_recipients: Vec<&str> = cc.split(',').collect();
+
+                                                                to_recipients.retain(|email| !email.contains(&user_email) && !email.trim().is_empty());
+                                                                cc_recipients.retain(|email| !email.contains(&user_email) && !email.trim().is_empty());
+                                                                to_recipients.sort();
+                                                                to_recipients.dedup();
+                                                                let to_all = to_recipients.join(", ");
+
+                                                                cc_recipients.sort();
+                                                                cc_recipients.dedup();
+                                                                let cc_all = cc_recipients.join(", ");
+
+                                                                let draft_prompt =
+                                                                    gemini::prompts::get_drafting_prompt(from, subject, &body);
+
+                                                                match gemini::client::call_gemini(&gemini_api_key, &draft_prompt)
+                                                                    .await
+                                                                {
+                                                                    Ok(draft_text) => {
+                                                                        logs.push(format!("- Draft from Gemini: {}", draft_text));
+
+                                                                        let attachment = Some(models::Attachment {
+                                                                            filename: attachment_filename,
+                                                                            mime_type: attachment_mime_type,
+                                                                            data: file_data,
+                                                                        });
+
+                                                                        match gmail::client::create_draft_with_attachment(
+                                                                            &access_token,
+                                                                            &user_email,
+                                                                            &message_id.thread_id,
+                                                                            &to_all,
+                                                                            &cc_all,
+                                                                            subject,
+                                                                            &draft_text,
+                                                                            attachment,
+                                                                        )
+                                                                        .await {
+                                                                            Ok(_) => {
+                                                                                logs.push("- Successfully created draft in Gmail.".to_string());
+                                                                                match gmail::client::mark_as_read(&access_token, &user_email, &message_id.id).await {
+                                                                                    Ok(_) => logs.push("- Successfully marked original email as read.".to_string()),
+                                                                                    Err(e) => logs.push(format!("- Failed to mark email as read: {}", e)),
+                                                                                };
+                                                                            },
+                                                                            Err(e) => logs.push(format!("- Failed to create draft: {}", e)),
+                                                                        }
+                                                                    }
+                                                                    Err(e) => logs.push(format!("- Failed to generate draft from Gemini: {}", e)),
+                                                                }
+                                                            },
+                                                            Err(e) => logs.push(format!("- Failed to download or export file '{}': {}", file_to_attach.name, e)),
+                                                        }
                                                     } else {
-                                                        logs.push("- ⚠️ Multiple files found, please select one:".to_string());
+                                                        logs.push("- ⚠️ Multiple files found, this is not yet handled.".to_string());
                                                         for file in files {
                                                             logs.push(format!(
-                                                                "- URL: {}",
-                                                                file.web_view_link
+                                                                "- Name: {}, Link: {}",
+                                                                file.name, file.web_view_link
                                                             ));
                                                         }
+                                                        // FUTURE: Phase 4 (Human-in-the-loop) logic will go here to allow user to select a file.
                                                     }
-                                                    // FUTURE: Logic to select a file and attach it will go here.
                                                 }
                                             }
                                             Err(e) => {

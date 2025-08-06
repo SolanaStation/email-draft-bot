@@ -105,7 +105,7 @@ pub async fn get_email_details(
     }
 }
 
-pub async fn create_draft(
+pub async fn create_draft_with_attachment(
     access_token: &str,
     user_id: &str,
     thread_id: &str,
@@ -113,13 +113,56 @@ pub async fn create_draft(
     cc_all: &str,
     subject: &str,
     body: &str,
+    attachment: Option<Attachment>,
 ) -> Result<()> {
-    let mut headers = format!("To: {}\r\nSubject: Re: {}\r\n", to_all, subject);
-    if !cc_all.is_empty() {
-        headers.push_str(&format!("Cc: {}\r\n", cc_all));
-    }
+    let raw_email = if let Some(att) = attachment {
+        let boundary = "boundary_string_for_email_draft_bot";
+        let mut headers = format!("To: {}\r\n", to_all);
+        if !cc_all.is_empty() {
+            headers.push_str(&format!("Cc: {}\r\n", cc_all));
+        }
+        headers.push_str(&format!("Subject: Re: {}\r\n", subject));
+        headers.push_str("MIME-Version: 1.0\r\n");
+        headers.push_str(&format!(
+            "Content-Type: multipart/mixed; boundary=\"{}\"\r\n",
+            boundary
+        ));
 
-    let raw_email = format!("{}\r\n{}", headers, body);
+        let body_part = format!(
+            "--{boundary}\r\n\
+             Content-Type: text/plain; charset=\"UTF-8\"\r\n\r\n\
+             {body}\r\n",
+            boundary = boundary,
+            body = body
+        );
+
+        let attachment_part = format!(
+            "--{boundary}\r\n\
+             Content-Type: {mime_type}; name=\"{filename}\"\r\n\
+             Content-Disposition: attachment; filename=\"{filename}\"\r\n\
+             Content-Transfer-Encoding: base64\r\n\r\n\
+             {data}\r\n",
+            boundary = boundary,
+            mime_type = att.mime_type,
+            filename = att.filename,
+            data = base64::engine::general_purpose::STANDARD.encode(&att.data)
+        );
+
+        format!(
+            "{headers}\r\n{body_part}{attachment_part}--{boundary}--\r\n",
+            headers = headers,
+            body_part = body_part,
+            attachment_part = attachment_part,
+            boundary = boundary
+        )
+    } else {
+        let mut headers = format!("To: {}\r\nSubject: Re: {}\r\n", to_all, subject);
+        if !cc_all.is_empty() {
+            headers.push_str(&format!("Cc: {}\r\n", cc_all));
+        }
+        format!("{}\r\n{}", headers, body)
+    };
+
     let encoded_email = URL_SAFE.encode(raw_email);
 
     let draft_request = CreateDraftRequest {
