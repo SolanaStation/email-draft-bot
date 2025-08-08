@@ -100,7 +100,6 @@ pub fn get_drafting_prompt(
             Subject: Attendance Report
             Body: Hi John, Can you provide the Attendance Report for last week?
             Attached File: /path/to/Attendance-Report.pdf
-            Draft Reply:
             Hi Emika,
 
             Thanks for reaching out.
@@ -125,7 +124,6 @@ pub fn get_drafting_prompt(
     From: Sakamoto <sakamoto@example.com>
     Subject: 明日の予定の件
     Body: Johnさん お疲れ様です。明日の予定を教えていただけないでしょうか。
-    Draft Reply:
     坂本さん
 
     お疲れ様です。
@@ -143,7 +141,6 @@ pub fn get_drafting_prompt(
     From: Emika <emika@example.com>
     Subject: A6への周知の件
     Body: Johnさん お疲れ様です。この件、A6で周知してもらえますか？
-    Draft Reply:
     Emikaさん
 
     お疲れ様です。
@@ -162,7 +159,6 @@ pub fn get_drafting_prompt(
     From: 鈴木 <suzuki@example.com>
     Subject: ご提案の件
     Body: John Tashiro様 お世話になっております。株式会社鈴木の鈴木です。先日のご提案についてですが...
-    Draft Reply:
     鈴木様
 
     お世話になっております。
@@ -181,7 +177,6 @@ pub fn get_drafting_prompt(
     From: Jane Doe <jane.doe@example.com>
     Subject: Quick question
     Body: Hi John, Hope you are well. Just had a quick question about the report.
-    Draft Reply:
     Hi Jane,
 
     Thanks for reaching out. I'm happy to help. What's your question about the report?
@@ -234,8 +229,8 @@ pub fn get_drafting_prompt(
     - From: {from}
     - Subject: {subject}
     - Body: {body}
-    - Draft Reply: THE EMAIL DRAFT
-    - {file_info}
+    EMAIL DRAFT
+    {file_info}
 
     "#,
         from = from,

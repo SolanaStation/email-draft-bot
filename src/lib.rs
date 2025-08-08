@@ -216,42 +216,57 @@ pub async fn main(_req: Request, env: Env, _ctx: Context) -> Result<Response> {
                                                             file_to_attach.name
                                                         ));
 
-                                                        let is_google_doc =
-                                                            file_to_attach.mime_type.starts_with(
-                                                                "application/vnd.google-apps",
-                                                            );
                                                         let (
                                                             file_data_result,
                                                             attachment_filename,
                                                             attachment_mime_type,
-                                                        ) = if is_google_doc {
-                                                            let export_mime_type =
-                                                                "application/pdf";
-                                                            let filename = format!(
-                                                                "{}.pdf",
-                                                                file_to_attach.name
-                                                            );
-                                                            logs.push(format!("- File is a Google Doc, exporting as PDF."));
-                                                            (
-                                                                drive::client::export_file(
-                                                                    &access_token,
-                                                                    &file_to_attach.id,
-                                                                    export_mime_type,
-                                                                )
-                                                                .await,
-                                                                filename,
-                                                                export_mime_type.to_string(),
-                                                            )
-                                                        } else {
-                                                            (
-                                                                drive::client::download_file(
-                                                                    &access_token,
-                                                                    &file_to_attach.id,
-                                                                )
-                                                                .await,
-                                                                file_to_attach.name.clone(),
-                                                                file_to_attach.mime_type.clone(),
-                                                            )
+                                                        ) = {
+                                                            let mime_type =
+                                                                &file_to_attach.mime_type;
+                                                            match mime_type.as_str() {
+                                                                // Google Docs
+                                                                "application/vnd.google-apps.document" => {
+                                                                    let export_mime_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+                                                                    let filename = format!("{}.docx", file_to_attach.name);
+                                                                    logs.push(format!("- File is a Google Doc, exporting as MS Word (.docx)."));
+                                                                    (
+                                                                        drive::client::export_file(&access_token, &file_to_attach.id, export_mime_type).await,
+                                                                        filename,
+                                                                        export_mime_type.to_string(),
+                                                                    )
+                                                                }
+                                                                // Google Sheets
+                                                                "application/vnd.google-apps.spreadsheet" => {
+                                                                    let export_mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                                                                    let filename = format!("{}.xlsx", file_to_attach.name);
+                                                                    logs.push(format!("- File is a Google Sheet, exporting as MS Excel (.xlsx)."));
+                                                                    (
+                                                                        drive::client::export_file(&access_token, &file_to_attach.id, export_mime_type).await,
+                                                                        filename,
+                                                                        export_mime_type.to_string(),
+                                                                    )
+                                                                }
+                                                                // Google Slides
+                                                                "application/vnd.google-apps.presentation" => {
+                                                                    let export_mime_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+                                                                    let filename = format!("{}.pptx", file_to_attach.name);
+                                                                    logs.push(format!("- File is a Google Slide, exporting as MS PowerPoint (.pptx)."));
+                                                                    (
+                                                                        drive::client::export_file(&access_token, &file_to_attach.id, export_mime_type).await,
+                                                                        filename,
+                                                                        export_mime_type.to_string(),
+                                                                    )
+                                                                }
+                                                                // For other native Google types or any other file, download directly.
+                                                                _ => {
+                                                                    logs.push(format!("- File is a standard type ('{}'), downloading directly.", mime_type));
+                                                                    (
+                                                                        drive::client::download_file(&access_token, &file_to_attach.id).await,
+                                                                        file_to_attach.name.clone(),
+                                                                        file_to_attach.mime_type.clone(),
+                                                                    )
+                                                                }
+                                                            }
                                                         };
 
                                                         match file_data_result {

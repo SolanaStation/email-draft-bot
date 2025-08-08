@@ -56,3 +56,45 @@ pub async fn call_gemini(api_key: &str, prompt: &str) -> Result<String> {
 
     Err(Error::from("Could not extract text from Gemini response"))
 }
+
+pub async fn get_embedding(api_key: &str, text: &str) -> Result<Vec<f32>> {
+    let client = reqwest::Client::new();
+    let url = format!(
+        "https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key={}",
+        api_key
+    );
+
+    let body = EmbeddingRequest {
+        content: Content {
+            parts: vec![Part {
+                text: text.to_string(),
+            }],
+        },
+    };
+
+    let res = client
+        .post(&url)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| Error::from(format!("Reqwest error during embedding: {}", e)))?;
+
+    if !res.status().is_success() {
+        let status = res.status();
+        let error_text = res
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unknown error".to_string());
+        return Err(Error::from(format!(
+            "Gemini Embedding API Error: {} (Status: {})",
+            error_text, status
+        )));
+    }
+
+    let response_data = res
+        .json::<EmbeddingResponse>()
+        .await
+        .map_err(|e| Error::from(format!("JSON parsing error during embedding: {}", e)))?;
+
+    Ok(response_data.embedding.values)
+}

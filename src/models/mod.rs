@@ -126,3 +126,26 @@ pub struct Attachment {
     pub mime_type: String,
     pub data: AttachmentData,
 }
+
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct EmbeddingRequest {
+    pub content: Content,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct EmbeddingResponse {
+    pub embedding: EmbeddingValues,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct EmbeddingValues {
+    pub values: Vec<f32>,
+}
+
+// --- Vectorize Structs ---
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextualDocument {
+    pub text: String,
+    pub created_at: i64,
+}
